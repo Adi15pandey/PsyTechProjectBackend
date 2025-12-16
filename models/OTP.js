@@ -17,19 +17,15 @@ const otpSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Compound index for faster lookups
 otpSchema.index({ phoneNumber: 1, otpCode: 1 });
-// TTL index for automatic deletion of expired OTPs
 otpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 const OTP = mongoose.model('OTP', otpSchema);
 
 class OTPModel {
   static async create(phoneNumber, otpCode, expiresAt) {
-    // Delete any existing OTPs for this phone number
     await OTP.deleteMany({ phoneNumber });
 
-    // Create new OTP
     const otp = new OTP({
       phoneNumber,
       otpCode,

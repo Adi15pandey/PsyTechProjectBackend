@@ -5,7 +5,6 @@ const JWTService = require('../services/jwtService');
 const User = require('../models/User');
 const { validate, validatePhoneNumber, validateOTP } = require('../middleware/validation');
 
-// POST /api/auth/send-otp
 router.post('/send-otp', 
   validatePhoneNumber(),
   validate,
@@ -13,7 +12,6 @@ router.post('/send-otp',
     try {
       const { phoneNumber } = req.body;
 
-      // Check rate limit
       const canSend = await OTPService.checkRateLimit(phoneNumber);
       if (!canSend) {
         return res.status(429).json({
@@ -23,13 +21,10 @@ router.post('/send-otp',
         });
       }
 
-      // Generate OTP
       const otpCode = OTPService.generateOTP();
 
-      // Store OTP
       await OTPService.storeOTP(phoneNumber, otpCode);
 
-      // Send OTP via SMS
       await OTPService.sendOTP(phoneNumber, otpCode);
 
       res.status(200).json({
@@ -47,7 +42,6 @@ router.post('/send-otp',
   }
 );
 
-// POST /api/auth/verify-otp
 router.post('/verify-otp',
   validatePhoneNumber(),
   validateOTP(),
@@ -56,7 +50,6 @@ router.post('/verify-otp',
     try {
       const { phoneNumber, otp } = req.body;
 
-      // Verify OTP
       const verification = await OTPService.verifyOTP(phoneNumber, otp);
       
       if (!verification.valid) {
@@ -67,21 +60,18 @@ router.post('/verify-otp',
         });
       }
 
-      // Check if user exists
       let user = await User.findByPhoneNumber(phoneNumber);
       const isNewUser = !user;
 
-      // If user doesn't exist, create a basic user record
       if (!user) {
         user = await User.create({
           phoneNumber,
-          purpose: 'personal', // Default, can be updated later
+          purpose: 'personal',
           showDate: true,
           language: 'english'
         });
       }
 
-      // Generate JWT token with actual user ID
       const token = JWTService.generateToken(user.id, phoneNumber);
 
       res.status(200).json({

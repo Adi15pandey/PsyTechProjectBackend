@@ -7,7 +7,6 @@ const authenticate = async (req, res, next) => {
     const token = JWTService.extractTokenFromHeader(authHeader);
     const decoded = JWTService.verifyToken(token);
 
-    // Verify user exists
     const user = await User.findById(decoded.userId);
     if (!user) {
       return res.status(401).json({

@@ -6,21 +6,16 @@ const MONGODB_URI = process.env.MONGODB_URI ||
 
 async function initDatabase() {
   try {
-    // Connect to MongoDB
     await mongoose.connect(MONGODB_URI);
 
-    console.log('✅ Connected to MongoDB');
-
-    // MongoDB will create collections automatically when first document is inserted
-    // No need for explicit schema creation like SQL databases
-    
-    console.log('✅ Database initialized successfully!');
-    console.log('📝 Collections will be created automatically when first document is inserted');
+    console.log('Connected to MongoDB');
+    console.log('Database initialized successfully');
+    console.log('Collections will be created automatically when first document is inserted');
     
     await mongoose.connection.close();
-    console.log('✅ Connection closed');
+    console.log('Connection closed');
   } catch (error) {
-    console.error('❌ Error initializing database:', error.message);
+    console.error('Error initializing database:', error.message);
     process.exit(1);
   }
 }

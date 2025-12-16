@@ -7,7 +7,6 @@ const UploadService = require('../services/uploadService');
 
 const upload = UploadService.getMulterUpload();
 
-// POST /api/user/register
 router.post('/register',
   authenticate,
   upload.fields([
@@ -26,7 +25,6 @@ router.post('/register',
         language
       } = req.body;
 
-      // Validate required fields
       if (!purpose || !['personal', 'business'].includes(purpose)) {
         return res.status(400).json({
           success: false,
@@ -45,7 +43,6 @@ router.post('/register',
       if (showDate !== undefined) updateData.showDate = showDate === 'true' || showDate === true;
       if (language !== undefined) updateData.language = language;
 
-      // Handle file uploads
       if (req.files) {
         if (req.files.profileImage && req.files.profileImage[0]) {
           const profileImagePath = await UploadService.uploadImage(
@@ -66,14 +63,11 @@ router.post('/register',
         }
       }
 
-      // Check if user exists
       let user = await User.findById(userId);
       
       if (user) {
-        // Update existing user
         user = await User.update(userId, updateData);
       } else {
-        // Create new user
         user = await User.create(updateData);
       }
 
@@ -93,7 +87,6 @@ router.post('/register',
   }
 );
 
-// GET /api/user/me
 router.get('/me', authenticate, async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -121,7 +114,6 @@ router.get('/me', authenticate, async (req, res) => {
   }
 });
 
-// PUT /api/user/me
 router.put('/me',
   authenticate,
   upload.fields([
@@ -133,7 +125,6 @@ router.put('/me',
       const userId = req.user.userId;
       const updateData = {};
 
-      // Handle text fields
       if (req.body.name !== undefined) updateData.name = req.body.name;
       if (req.body.businessName !== undefined) updateData.businessName = req.body.businessName;
       if (req.body.purpose !== undefined) {
@@ -160,7 +151,6 @@ router.put('/me',
         updateData.language = req.body.language;
       }
 
-      // Handle file uploads
       if (req.files) {
         if (req.files.profileImage && req.files.profileImage[0]) {
           const profileImagePath = await UploadService.uploadImage(
@@ -181,7 +171,6 @@ router.put('/me',
         }
       }
 
-      // Update user
       const user = await User.update(userId, updateData);
 
       if (!user) {

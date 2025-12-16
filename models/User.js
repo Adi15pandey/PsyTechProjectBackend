@@ -48,10 +48,9 @@ const userSchema = new mongoose.Schema({
   }
 }, {
   timestamps: true,
-  _id: false // We're using custom _id
+  _id: false
 });
 
-// Create indexes
 userSchema.index({ phoneNumber: 1 });
 
 const User = mongoose.model('User', userSchema);

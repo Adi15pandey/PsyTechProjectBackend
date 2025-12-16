@@ -13,14 +13,17 @@ class OTPService {
   }
 
   static async sendOTP(phoneNumber, otpCode) {
-    // If MSG91 is configured, use it
     if (MSG91_AUTH_KEY) {
+      console.log(`Attempting to send OTP via MSG91 to ${phoneNumber}`);
       return this.sendViaMSG91(phoneNumber, otpCode);
     }
 
-    // Otherwise, log it (for development/testing)
-    console.log(`📱 OTP for ${phoneNumber}: ${otpCode}`);
-    return { success: true, message: 'OTP sent (logged to console)' };
+    console.log(`OTP for ${phoneNumber}: ${otpCode}`);
+    console.log(`Valid for ${OTP_EXPIRY_MINUTES} minutes`);
+    console.log(`SMS service not configured. OTP logged above.`);
+    console.log(`To enable real SMS: Add MSG91_AUTH_KEY in Render environment variables`);
+    
+    return { success: true, message: 'OTP sent (check logs for OTP code)' };
   }
 
   static async sendViaMSG91(phoneNumber, otpCode) {
@@ -48,8 +51,7 @@ class OTPService {
       }
     } catch (error) {
       console.error('MSG91 Error:', error.response?.data || error.message);
-      // Fallback to console log in case of error
-      console.log(`📱 OTP for ${phoneNumber}: ${otpCode}`);
+      console.log(`OTP for ${phoneNumber}: ${otpCode}`);
       return { success: true, message: 'OTP sent (fallback mode)' };
     }
   }
@@ -68,7 +70,6 @@ class OTPService {
       return { valid: false, error: 'Invalid or expired OTP' };
     }
 
-    // Delete the OTP after successful verification
     await OTP.delete(phoneNumber, otpCode);
     
     return { valid: true };
@@ -76,7 +77,7 @@ class OTPService {
 
   static async checkRateLimit(phoneNumber) {
     const count = await OTP.countByPhoneNumber(phoneNumber, 60);
-    return count < 3; // Max 3 OTPs per hour
+    return count < 3;
   }
 }
 
