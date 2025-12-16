@@ -19,6 +19,24 @@ app.use(express.urlencoded({ extended: true }));
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'PsyTech Backend API',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      sendOTP: 'POST /api/auth/send-otp',
+      verifyOTP: 'POST /api/auth/verify-otp',
+      register: 'POST /api/user/register',
+      getProfile: 'GET /api/user/me',
+      updateProfile: 'PUT /api/user/me'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
@@ -37,7 +55,17 @@ app.use((req, res) => {
   res.status(404).json({
     success: false,
     error: 'Route not found',
-    code: 'NOT_FOUND'
+    code: 'NOT_FOUND',
+    path: req.path,
+    method: req.method,
+    availableEndpoints: {
+      health: 'GET /health',
+      sendOTP: 'POST /api/auth/send-otp',
+      verifyOTP: 'POST /api/auth/verify-otp',
+      register: 'POST /api/user/register',
+      getProfile: 'GET /api/user/me',
+      updateProfile: 'PUT /api/user/me'
+    }
   });
 });
 
