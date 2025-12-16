@@ -11,8 +11,10 @@ router.post('/send-otp',
   async (req, res) => {
     try {
       const { phoneNumber } = req.body;
+      
+      const normalizedPhone = phoneNumber.trim();
 
-      const canSend = await OTPService.checkRateLimit(phoneNumber);
+      const canSend = await OTPService.checkRateLimit(normalizedPhone);
       if (!canSend) {
         return res.status(429).json({
           success: false,
@@ -23,20 +25,21 @@ router.post('/send-otp',
 
       const otpCode = OTPService.generateOTP();
 
-      await OTPService.storeOTP(phoneNumber, otpCode);
+      await OTPService.storeOTP(normalizedPhone, otpCode);
 
-      await OTPService.sendOTP(phoneNumber, otpCode);
+      await OTPService.sendOTP(normalizedPhone, otpCode);
 
       res.status(200).json({
         success: true,
         message: 'OTP sent successfully'
       });
     } catch (error) {
-      console.error('Send OTP Error:', error);
-      res.status(500).json({
+      console.error('Send OTP Error:', error.message || error);
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({
         success: false,
-        error: 'Failed to send OTP',
-        code: 'SERVER_ERROR'
+        error: error.message || 'Failed to send OTP',
+        code: error.code || 'SERVER_ERROR'
       });
     }
   }
@@ -49,8 +52,11 @@ router.post('/verify-otp',
   async (req, res) => {
     try {
       const { phoneNumber, otp } = req.body;
+      
+      const normalizedPhone = phoneNumber.trim();
+      const normalizedOTP = otp.trim();
 
-      const verification = await OTPService.verifyOTP(phoneNumber, otp);
+      const verification = await OTPService.verifyOTP(normalizedPhone, normalizedOTP);
       
       if (!verification.valid) {
         return res.status(400).json({
@@ -60,19 +66,19 @@ router.post('/verify-otp',
         });
       }
 
-      let user = await User.findByPhoneNumber(phoneNumber);
+      let user = await User.findByPhoneNumber(normalizedPhone);
       const isNewUser = !user;
 
       if (!user) {
         user = await User.create({
-          phoneNumber,
+          phoneNumber: normalizedPhone,
           purpose: 'personal',
           showDate: true,
           language: 'english'
         });
       }
 
-      const token = JWTService.generateToken(user.id, phoneNumber);
+      const token = JWTService.generateToken(user.id, normalizedPhone);
 
       res.status(200).json({
         success: true,
@@ -82,11 +88,12 @@ router.post('/verify-otp',
         isNewUser
       });
     } catch (error) {
-      console.error('Verify OTP Error:', error);
-      res.status(500).json({
+      console.error('Verify OTP Error:', error.message || error);
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({
         success: false,
-        error: 'Failed to verify OTP',
-        code: 'SERVER_ERROR'
+        error: error.message || 'Failed to verify OTP',
+        code: error.code || 'SERVER_ERROR'
       });
     }
   }

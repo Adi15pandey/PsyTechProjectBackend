@@ -34,14 +34,14 @@ router.post('/register',
       }
 
       const updateData = {
-        phoneNumber: phoneNumber || req.user.phoneNumber,
-        purpose
+        phoneNumber: phoneNumber ? String(phoneNumber).trim() : req.user.phoneNumber,
+        purpose: String(purpose).toLowerCase()
       };
 
-      if (name !== undefined) updateData.name = name;
-      if (businessName !== undefined) updateData.businessName = businessName;
+      if (name !== undefined) updateData.name = name ? String(name).trim() : null;
+      if (businessName !== undefined) updateData.businessName = businessName ? String(businessName).trim() : null;
       if (showDate !== undefined) updateData.showDate = showDate === 'true' || showDate === true;
-      if (language !== undefined) updateData.language = language;
+      if (language !== undefined) updateData.language = String(language).toLowerCase();
 
       if (req.files) {
         if (req.files.profileImage && req.files.profileImage[0]) {
@@ -77,11 +77,12 @@ router.post('/register',
         user: User.formatUser(user)
       });
     } catch (error) {
-      console.error('Register Error:', error);
-      res.status(500).json({
+      console.error('Register Error:', error.message || error);
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({
         success: false,
-        error: 'Failed to register user',
-        code: 'SERVER_ERROR'
+        error: error.message || 'Failed to register user',
+        code: error.code || 'SERVER_ERROR'
       });
     }
   }
@@ -104,14 +105,15 @@ router.get('/me', authenticate, async (req, res) => {
       success: true,
       user: User.formatUser(user)
     });
-  } catch (error) {
-    console.error('Get User Error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get user',
-      code: 'SERVER_ERROR'
-    });
-  }
+    } catch (error) {
+      console.error('Get User Error:', error.message || error);
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({
+        success: false,
+        error: error.message || 'Failed to get user',
+        code: error.code || 'SERVER_ERROR'
+      });
+    }
 });
 
 router.put('/me',
@@ -125,8 +127,8 @@ router.put('/me',
       const userId = req.user.userId;
       const updateData = {};
 
-      if (req.body.name !== undefined) updateData.name = req.body.name;
-      if (req.body.businessName !== undefined) updateData.businessName = req.body.businessName;
+      if (req.body.name !== undefined) updateData.name = req.body.name ? String(req.body.name).trim() : null;
+      if (req.body.businessName !== undefined) updateData.businessName = req.body.businessName ? String(req.body.businessName).trim() : null;
       if (req.body.purpose !== undefined) {
         if (!['personal', 'business'].includes(req.body.purpose)) {
           return res.status(400).json({
@@ -187,11 +189,12 @@ router.put('/me',
         user: User.formatUser(user)
       });
     } catch (error) {
-      console.error('Update User Error:', error);
-      res.status(500).json({
+      console.error('Update User Error:', error.message || error);
+      const statusCode = error.statusCode || 500;
+      res.status(statusCode).json({
         success: false,
-        error: 'Failed to update user',
-        code: 'SERVER_ERROR'
+        error: error.message || 'Failed to update user',
+        code: error.code || 'SERVER_ERROR'
       });
     }
   }

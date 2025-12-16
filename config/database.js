@@ -4,12 +4,19 @@ require('dotenv').config();
 const MONGODB_URI = process.env.MONGODB_URI || 
   `mongodb://${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || '27017'}/${process.env.DB_NAME || 'psytech_db'}`;
 
-mongoose.connect(MONGODB_URI)
+const connectionOptions = {
+  maxPoolSize: 10,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+};
+
+mongoose.connect(MONGODB_URI, connectionOptions)
   .then(() => {
     console.log('MongoDB connected successfully');
   })
   .catch((err) => {
     console.error('MongoDB connection error:', err.message);
+    process.exit(1);
   });
 
 mongoose.connection.on('connected', () => {

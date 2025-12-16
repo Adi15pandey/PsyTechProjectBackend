@@ -28,12 +28,18 @@ class OTPService {
 
   static async sendViaMSG91(phoneNumber, otpCode) {
     try {
+      if (!MSG91_TEMPLATE_ID) {
+        throw new Error('MSG91 template ID not configured');
+      }
+
       const url = 'https://control.msg91.com/api/v5/flow/';
+      const normalizedPhone = phoneNumber.replace(/^\+/, '');
+      
       const payload = {
         template_id: MSG91_TEMPLATE_ID,
         sender: MSG91_SENDER_ID,
         short_url: '0',
-        mobiles: phoneNumber.replace('+', ''),
+        mobiles: normalizedPhone,
         otp: otpCode
       };
 
@@ -41,13 +47,14 @@ class OTPService {
         headers: {
           'Content-Type': 'application/json',
           'authkey': MSG91_AUTH_KEY
-        }
+        },
+        timeout: 10000
       });
 
-      if (response.data.type === 'success') {
+      if (response.data && response.data.type === 'success') {
         return { success: true, message: 'OTP sent successfully' };
       } else {
-        throw new Error(response.data.message || 'Failed to send OTP');
+        throw new Error(response.data?.message || 'Failed to send OTP');
       }
     } catch (error) {
       console.error('MSG91 Error:', error.response?.data || error.message);
@@ -64,13 +71,20 @@ class OTPService {
   }
 
   static async verifyOTP(phoneNumber, otpCode) {
-    const otpRecord = await OTP.findByPhoneAndCode(phoneNumber, otpCode);
+    if (!phoneNumber || !otpCode) {
+      return { valid: false, error: 'Phone number and OTP are required' };
+    }
+
+    const normalizedPhone = String(phoneNumber).trim();
+    const normalizedOTP = String(otpCode).trim();
+
+    const otpRecord = await OTP.findByPhoneAndCode(normalizedPhone, normalizedOTP);
     
     if (!otpRecord) {
       return { valid: false, error: 'Invalid or expired OTP' };
     }
 
-    await OTP.delete(phoneNumber, otpCode);
+    await OTP.delete(normalizedPhone, normalizedOTP);
     
     return { valid: true };
   }

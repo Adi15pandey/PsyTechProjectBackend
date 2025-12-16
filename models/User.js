@@ -57,25 +57,35 @@ const User = mongoose.model('User', userSchema);
 
 class UserModel {
   static async findByPhoneNumber(phoneNumber) {
-    return await User.findOne({ phoneNumber });
+    if (!phoneNumber || typeof phoneNumber !== 'string') {
+      return null;
+    }
+    return await User.findOne({ phoneNumber: phoneNumber.trim() });
   }
 
   static async findById(userId) {
-    return await User.findById(userId);
+    if (!userId || typeof userId !== 'string') {
+      return null;
+    }
+    return await User.findById(userId.trim());
   }
 
   static async create(userData) {
+    if (!userData || !userData.phoneNumber) {
+      throw new Error('Phone number is required');
+    }
+
     const user = new User({
       _id: uuidv4(),
-      phoneNumber: userData.phoneNumber,
-      name: userData.name || null,
-      businessName: userData.businessName || null,
+      phoneNumber: String(userData.phoneNumber).trim(),
+      name: userData.name ? String(userData.name).trim() : null,
+      businessName: userData.businessName ? String(userData.businessName).trim() : null,
       purpose: userData.purpose || 'personal',
-      showDate: userData.showDate !== undefined ? userData.showDate : true,
+      showDate: userData.showDate !== undefined ? Boolean(userData.showDate) : true,
       language: userData.language || 'english',
-      profileImagePath: userData.profileImagePath || null,
-      logoPath: userData.logoPath || null,
-      isPremium: userData.isPremium || false
+      profileImagePath: userData.profileImagePath ? String(userData.profileImagePath).trim() : null,
+      logoPath: userData.logoPath ? String(userData.logoPath).trim() : null,
+      isPremium: Boolean(userData.isPremium || false)
     });
     
     await user.save();

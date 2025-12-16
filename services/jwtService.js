@@ -17,23 +17,36 @@ class JWTService {
 
   static verifyToken(token) {
     try {
+      if (!token || typeof token !== 'string') {
+        throw new Error('Token must be a non-empty string');
+      }
       return jwt.verify(token, JWT_SECRET);
     } catch (error) {
+      if (error.name === 'TokenExpiredError') {
+        throw new Error('Token has expired');
+      } else if (error.name === 'JsonWebTokenError') {
+        throw new Error('Invalid token signature');
+      }
       throw new Error('Invalid or expired token');
     }
   }
 
   static extractTokenFromHeader(authHeader) {
-    if (!authHeader) {
+    if (!authHeader || typeof authHeader !== 'string') {
       throw new Error('Authorization header missing');
     }
 
-    const parts = authHeader.split(' ');
+    const parts = authHeader.trim().split(' ');
     if (parts.length !== 2 || parts[0] !== 'Bearer') {
       throw new Error('Invalid authorization header format');
     }
 
-    return parts[1];
+    const token = parts[1];
+    if (!token || token.length === 0) {
+      throw new Error('Token is empty');
+    }
+
+    return token;
   }
 }
 
