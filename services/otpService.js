@@ -1,4 +1,5 @@
 const OTP = require('../models/OTP');
+const mongoose = require('../config/database');
 const axios = require('axios');
 
 const OTP_LENGTH = parseInt(process.env.OTP_LENGTH) || 6;
@@ -73,10 +74,18 @@ class OTPService {
   }
 
   static async storeOTP(phoneNumber, otpCode) {
-    const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + OTP_EXPIRY_MINUTES);
-
-    await OTP.create(phoneNumber, otpCode, expiresAt);
+    try {
+      if (mongoose.connection.readyState !== 1) {
+        console.log('MongoDB not connected, skipping OTP storage');
+        return;
+      }
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + OTP_EXPIRY_MINUTES);
+      await OTP.create(phoneNumber, otpCode, expiresAt);
+    } catch (error) {
+      console.error('Store OTP error:', error.message);
+      throw error;
+    }
   }
 
   static async verifyOTP(phoneNumber, otpCode) {
@@ -89,28 +98,52 @@ class OTPService {
 
     if (process.env.USE_DEV_OTP === 'true' || process.env.NODE_ENV === 'development') {
       if (normalizedOTP === DEV_OTP) {
-        const otpRecord = await OTP.findByPhoneAndCode(normalizedPhone, normalizedOTP);
-        if (otpRecord) {
-          await OTP.delete(normalizedPhone, normalizedOTP);
+        if (mongoose.connection.readyState === 1) {
+          try {
+            const otpRecord = await OTP.findByPhoneAndCode(normalizedPhone, normalizedOTP);
+            if (otpRecord) {
+              await OTP.delete(normalizedPhone, normalizedOTP);
+            }
+          } catch (error) {
+            console.error('OTP cleanup error:', error.message);
+          }
         }
         return { valid: true };
       }
     }
 
-    const otpRecord = await OTP.findByPhoneAndCode(normalizedPhone, normalizedOTP);
-    
-    if (!otpRecord) {
-      return { valid: false, error: 'Invalid or expired OTP' };
+    if (mongoose.connection.readyState !== 1) {
+      return { valid: false, error: 'Database connection not available. Please try again.' };
     }
 
-    await OTP.delete(normalizedPhone, normalizedOTP);
-    
-    return { valid: true };
+    try {
+      const otpRecord = await OTP.findByPhoneAndCode(normalizedPhone, normalizedOTP);
+      
+      if (!otpRecord) {
+        return { valid: false, error: 'Invalid or expired OTP' };
+      }
+
+      await OTP.delete(normalizedPhone, normalizedOTP);
+      
+      return { valid: true };
+    } catch (error) {
+      console.error('Verify OTP error:', error.message);
+      return { valid: false, error: 'Database error. Please try again.' };
+    }
   }
 
   static async checkRateLimit(phoneNumber) {
-    const count = await OTP.countByPhoneNumber(phoneNumber, 60);
-    return count < 3;
+    try {
+      if (mongoose.connection.readyState !== 1) {
+        console.log('MongoDB not connected, skipping rate limit check');
+        return true;
+      }
+      const count = await OTP.countByPhoneNumber(phoneNumber, 60);
+      return count < 3;
+    } catch (error) {
+      console.error('Rate limit check error:', error.message);
+      return true;
+    }
   }
 }
 

@@ -59,14 +59,24 @@ class UserModel {
     if (!phoneNumber || typeof phoneNumber !== 'string') {
       return null;
     }
-    return await User.findOne({ phoneNumber: phoneNumber.trim() });
+    try {
+      return await User.findOne({ phoneNumber: phoneNumber.trim() });
+    } catch (error) {
+      console.error('Find user by phone error:', error.message);
+      throw error;
+    }
   }
 
   static async findById(userId) {
     if (!userId || typeof userId !== 'string') {
       return null;
     }
-    return await User.findById(userId.trim());
+    try {
+      return await User.findById(userId.trim());
+    } catch (error) {
+      console.error('Find user by ID error:', error.message);
+      throw error;
+    }
   }
 
   static async create(userData) {

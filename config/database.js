@@ -75,4 +75,9 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
+const isConnected = () => {
+  return mongoose.connection.readyState === 1;
+};
+
 module.exports = mongoose;
+module.exports.isConnected = isConnected;

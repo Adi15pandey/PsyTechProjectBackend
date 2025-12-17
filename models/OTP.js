@@ -24,26 +24,36 @@ const OTP = mongoose.model('OTP', otpSchema);
 
 class OTPModel {
   static async create(phoneNumber, otpCode, expiresAt) {
-    await OTP.deleteMany({ phoneNumber });
+    try {
+      await OTP.deleteMany({ phoneNumber }).maxTimeMS(5000);
 
-    const otp = new OTP({
-      phoneNumber,
-      otpCode,
-      expiresAt
-    });
+      const otp = new OTP({
+        phoneNumber,
+        otpCode,
+        expiresAt
+      });
 
-    await otp.save();
-    return otp;
+      await otp.save();
+      return otp;
+    } catch (error) {
+      console.error('Create OTP error:', error.message);
+      throw error;
+    }
   }
 
   static async findByPhoneAndCode(phoneNumber, otpCode) {
-    const otp = await OTP.findOne({
-      phoneNumber,
-      otpCode,
-      expiresAt: { $gt: new Date() }
-    });
-    
-    return otp;
+    try {
+      const otp = await OTP.findOne({
+        phoneNumber,
+        otpCode,
+        expiresAt: { $gt: new Date() }
+      }).maxTimeMS(5000);
+      
+      return otp;
+    } catch (error) {
+      console.error('Find OTP error:', error.message);
+      return null;
+    }
   }
 
   static async delete(phoneNumber, otpCode) {
@@ -55,13 +65,18 @@ class OTPModel {
   }
 
   static async countByPhoneNumber(phoneNumber, minutes = 60) {
-    const cutoffTime = new Date(Date.now() - minutes * 60 * 1000);
-    const count = await OTP.countDocuments({
-      phoneNumber,
-      createdAt: { $gt: cutoffTime }
-    });
-    
-    return count;
+    try {
+      const cutoffTime = new Date(Date.now() - minutes * 60 * 1000);
+      const count = await OTP.countDocuments({
+        phoneNumber,
+        createdAt: { $gt: cutoffTime }
+      }).maxTimeMS(5000);
+      
+      return count;
+    } catch (error) {
+      console.error('Count OTP error:', error.message);
+      return 0;
+    }
   }
 }
 

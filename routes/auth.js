@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('../config/database');
 const OTPService = require('../services/otpService');
 const JWTService = require('../services/jwtService');
 const User = require('../models/User');
@@ -15,18 +16,28 @@ router.post('/send-otp',
       
       const normalizedPhone = phoneNumber.trim();
 
-      const canSend = await OTPService.checkRateLimit(normalizedPhone);
-      if (!canSend) {
-        return res.status(429).json({
-          success: false,
-          error: 'Too many OTP requests. Please try again later.',
-          code: 'RATE_LIMIT_EXCEEDED'
-        });
+      if (mongoose.connection.readyState === 1) {
+        const canSend = await OTPService.checkRateLimit(normalizedPhone);
+        if (!canSend) {
+          return res.status(429).json({
+            success: false,
+            error: 'Too many OTP requests. Please try again later.',
+            code: 'RATE_LIMIT_EXCEEDED'
+          });
+        }
       }
 
       const otpCode = OTPService.generateOTP();
 
-      await OTPService.storeOTP(normalizedPhone, otpCode);
+      if (mongoose.connection.readyState === 1) {
+        try {
+          await OTPService.storeOTP(normalizedPhone, otpCode);
+        } catch (error) {
+          console.error('Store OTP failed, continuing without storage:', error.message);
+        }
+      } else {
+        console.log('Database not connected, skipping OTP storage');
+      }
 
       await OTPService.sendOTP(normalizedPhone, otpCode);
 
@@ -67,6 +78,14 @@ router.post('/verify-otp',
         });
       }
 
+      if (mongoose.connection.readyState !== 1) {
+        return res.status(503).json({
+          success: false,
+          error: 'Database connection not available. Please try again in a moment.',
+          code: 'SERVICE_UNAVAILABLE'
+        });
+      }
+
       let user = await User.findByPhoneNumber(normalizedPhone);
       const isNewUser = !user;
 
@@ -83,7 +102,11 @@ router.post('/verify-otp',
       const refreshToken = JWTService.generateRefreshToken(user.id, normalizedPhone);
       const expiresAt = JWTService.getRefreshTokenExpiry();
 
-      await RefreshToken.create(user.id, normalizedPhone, refreshToken, expiresAt);
+      try {
+        await RefreshToken.create(user.id, normalizedPhone, refreshToken, expiresAt);
+      } catch (error) {
+        console.error('Refresh token storage error:', error.message);
+      }
 
       res.status(200).json({
         success: true,
