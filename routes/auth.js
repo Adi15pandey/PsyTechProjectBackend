@@ -191,9 +191,42 @@ router.post('/refresh-token', async (req, res) => {
 router.post('/logout', async (req, res) => {
   try {
     const { refreshToken } = req.body;
+    let userId = null;
 
-    if (refreshToken) {
-      await RefreshToken.revokeToken(refreshToken);
+    const authHeader = req.headers.authorization;
+    if (authHeader) {
+      try {
+        const token = JWTService.extractTokenFromHeader(authHeader);
+        const decoded = JWTService.verifyToken(token);
+        if (decoded && decoded.userId) {
+          userId = decoded.userId;
+        }
+      } catch (error) {
+        console.log('Access token verification failed, continuing with refresh token only');
+      }
+    }
+
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        success: false,
+        error: 'Database connection not available. Please try again in a moment.',
+        code: 'SERVICE_UNAVAILABLE'
+      });
+    }
+
+    if (userId) {
+      await RefreshToken.revokeAllUserTokens(userId);
+    } else if (refreshToken) {
+      try {
+        const decoded = JWTService.verifyRefreshToken(refreshToken);
+        if (decoded && decoded.userId) {
+          await RefreshToken.revokeAllUserTokens(decoded.userId);
+        } else {
+          await RefreshToken.revokeToken(refreshToken);
+        }
+      } catch (error) {
+        await RefreshToken.revokeToken(refreshToken);
+      }
     }
 
     res.status(200).json({
