@@ -96,23 +96,29 @@ class OTPService {
     const normalizedPhone = String(phoneNumber).trim();
     const normalizedOTP = String(otpCode).trim();
 
-    if (process.env.USE_DEV_OTP === 'true' || process.env.NODE_ENV === 'development') {
-      if (normalizedOTP === DEV_OTP) {
-        if (mongoose.connection.readyState === 1) {
-          try {
-            const otpRecord = await OTP.findByPhoneAndCode(normalizedPhone, normalizedOTP);
-            if (otpRecord) {
-              await OTP.delete(normalizedPhone, normalizedOTP);
-            }
-          } catch (error) {
-            console.error('OTP cleanup error:', error.message);
+    const isDevMode = process.env.USE_DEV_OTP === 'true' || process.env.NODE_ENV === 'development';
+    
+    if (isDevMode && normalizedOTP === DEV_OTP) {
+      if (mongoose.connection.readyState === 1) {
+        try {
+          const otpRecord = await OTP.findByPhoneAndCode(normalizedPhone, normalizedOTP);
+          if (otpRecord) {
+            await OTP.delete(normalizedPhone, normalizedOTP);
           }
+        } catch (error) {
+          console.error('OTP cleanup error:', error.message);
         }
-        return { valid: true };
       }
+      return { valid: true };
     }
 
     if (mongoose.connection.readyState !== 1) {
+      if (isDevMode) {
+        console.log('Database not connected, but accepting hardcoded OTP in dev mode');
+        if (normalizedOTP === DEV_OTP) {
+          return { valid: true };
+        }
+      }
       return { valid: false, error: 'Database connection not available. Please try again.' };
     }
 
@@ -120,6 +126,9 @@ class OTPService {
       const otpRecord = await OTP.findByPhoneAndCode(normalizedPhone, normalizedOTP);
       
       if (!otpRecord) {
+        if (isDevMode && normalizedOTP === DEV_OTP) {
+          return { valid: true };
+        }
         return { valid: false, error: 'Invalid or expired OTP' };
       }
 
@@ -128,6 +137,9 @@ class OTPService {
       return { valid: true };
     } catch (error) {
       console.error('Verify OTP error:', error.message);
+      if (isDevMode && normalizedOTP === DEV_OTP) {
+        return { valid: true };
+      }
       return { valid: false, error: 'Database error. Please try again.' };
     }
   }
