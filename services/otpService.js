@@ -11,7 +11,7 @@ const DEV_OTP = process.env.DEV_OTP || '123456';
 
 class OTPService {
   static generateOTP() {
-    if (process.env.USE_DEV_OTP === 'true' || process.env.NODE_ENV === 'development') {
+    if (process.env.USE_DEV_OTP === 'true' || process.env.NODE_ENV === 'development' || !MSG91_AUTH_KEY) {
       return DEV_OTP;
     }
     return Math.floor(100000 + Math.random() * 900000).toString();
@@ -96,7 +96,7 @@ class OTPService {
     const normalizedPhone = String(phoneNumber).trim();
     const normalizedOTP = String(otpCode).trim();
 
-    const isDevMode = process.env.USE_DEV_OTP === 'true' || process.env.NODE_ENV === 'development';
+    const isDevMode = process.env.USE_DEV_OTP === 'true' || process.env.NODE_ENV === 'development' || !MSG91_AUTH_KEY;
     
     if (isDevMode && normalizedOTP === DEV_OTP) {
       if (mongoose.connection.readyState === 1) {
