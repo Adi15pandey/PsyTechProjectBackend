@@ -6,35 +6,67 @@ const MONGODB_URI = process.env.MONGODB_URI ||
 
 const connectionOptions = {
   maxPoolSize: 10,
-  serverSelectionTimeoutMS: 5000,
+  serverSelectionTimeoutMS: 10000,
   socketTimeoutMS: 45000,
+  connectTimeoutMS: 10000,
+  retryWrites: true,
+  w: 'majority'
 };
 
-mongoose.connect(MONGODB_URI, connectionOptions)
-  .then(() => {
+let retryCount = 0;
+const maxRetries = 5;
+
+const connectWithRetry = async () => {
+  try {
+    await mongoose.connect(MONGODB_URI, connectionOptions);
     console.log('MongoDB connected successfully');
-  })
-  .catch((err) => {
-    console.error('MongoDB connection error:', err.message);
-    if (process.env.NODE_ENV === 'production') {
-      console.error('Please check MongoDB Atlas IP whitelist settings');
-      console.error('Add 0.0.0.0/0 to allow all IPs or add Render IPs');
+    retryCount = 0;
+  } catch (err) {
+    retryCount++;
+    console.error(`MongoDB connection error (attempt ${retryCount}/${maxRetries}):`, err.message);
+    
+    if (err.message.includes('whitelist') || err.message.includes('ECONNRESET') || err.message.includes('TLS')) {
+      console.error('\n========================================');
+      console.error('MONGODB ATLAS IP WHITELIST REQUIRED');
+      console.error('========================================');
+      console.error('1. Go to: https://cloud.mongodb.com');
+      console.error('2. Select your cluster');
+      console.error('3. Go to Network Access');
+      console.error('4. Click "Add IP Address"');
+      console.error('5. Click "Allow Access from Anywhere"');
+      console.error('6. Enter: 0.0.0.0/0');
+      console.error('7. Click Confirm');
+      console.error('8. Wait 1-2 minutes');
+      console.error('========================================\n');
     }
-    setTimeout(() => {
+    
+    if (retryCount < maxRetries) {
+      console.log(`Retrying connection in 5 seconds...`);
+      setTimeout(connectWithRetry, 5000);
+    } else {
+      console.error('Max retries reached. Exiting...');
       process.exit(1);
-    }, 5000);
-  });
+    }
+  }
+};
+
+connectWithRetry();
 
 mongoose.connection.on('connected', () => {
   console.log('Mongoose connected to MongoDB');
+  retryCount = 0;
 });
 
 mongoose.connection.on('error', (err) => {
-  console.error('Mongoose connection error:', err);
+  console.error('Mongoose connection error:', err.message);
 });
 
 mongoose.connection.on('disconnected', () => {
   console.log('Mongoose disconnected');
+  if (process.env.NODE_ENV === 'production') {
+    console.log('Attempting to reconnect...');
+    setTimeout(connectWithRetry, 5000);
+  }
 });
 
 process.on('SIGINT', async () => {
