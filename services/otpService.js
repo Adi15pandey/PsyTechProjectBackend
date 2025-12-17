@@ -6,13 +6,22 @@ const OTP_EXPIRY_MINUTES = parseInt(process.env.OTP_EXPIRY_MINUTES) || 5;
 const MSG91_AUTH_KEY = process.env.MSG91_AUTH_KEY;
 const MSG91_SENDER_ID = process.env.MSG91_SENDER_ID || 'PSYTCH';
 const MSG91_TEMPLATE_ID = process.env.MSG91_TEMPLATE_ID;
+const DEV_OTP = process.env.DEV_OTP || '123456';
 
 class OTPService {
   static generateOTP() {
+    if (process.env.USE_DEV_OTP === 'true' || process.env.NODE_ENV === 'development') {
+      return DEV_OTP;
+    }
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
   static async sendOTP(phoneNumber, otpCode) {
+    if (process.env.USE_DEV_OTP === 'true' || process.env.NODE_ENV === 'development') {
+      console.log(`Development mode: Using hardcoded OTP ${otpCode} for ${phoneNumber}`);
+      return { success: true, message: 'OTP sent successfully (development mode)' };
+    }
+
     if (MSG91_AUTH_KEY) {
       console.log(`Attempting to send OTP via MSG91 to ${phoneNumber}`);
       return this.sendViaMSG91(phoneNumber, otpCode);
@@ -77,6 +86,16 @@ class OTPService {
 
     const normalizedPhone = String(phoneNumber).trim();
     const normalizedOTP = String(otpCode).trim();
+
+    if (process.env.USE_DEV_OTP === 'true' || process.env.NODE_ENV === 'development') {
+      if (normalizedOTP === DEV_OTP) {
+        const otpRecord = await OTP.findByPhoneAndCode(normalizedPhone, normalizedOTP);
+        if (otpRecord) {
+          await OTP.delete(normalizedPhone, normalizedOTP);
+        }
+        return { valid: true };
+      }
+    }
 
     const otpRecord = await OTP.findByPhoneAndCode(normalizedPhone, normalizedOTP);
     
