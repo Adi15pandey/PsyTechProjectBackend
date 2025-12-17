@@ -46,9 +46,21 @@ app.get('/', (req, res) => {
 });
 
 app.get('/health', (req, res) => {
+  const dbStatus = mongoose.connection.readyState;
+  const dbStates = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  };
+
   res.json({
     success: true,
     message: 'Server is running',
+    database: {
+      status: dbStates[dbStatus] || 'unknown',
+      connected: dbStatus === 1
+    },
     timestamp: new Date().toISOString()
   });
 });

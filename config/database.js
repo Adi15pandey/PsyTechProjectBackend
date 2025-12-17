@@ -18,34 +18,45 @@ const maxRetries = 5;
 
 const connectWithRetry = async () => {
   try {
+    console.log(`Attempting to connect to MongoDB...`);
+    console.log(`Connection string: ${MONGODB_URI.replace(/:[^:@]+@/, ':****@')}`);
+    
     await mongoose.connect(MONGODB_URI, connectionOptions);
-    console.log('MongoDB connected successfully');
+    console.log('✅ MongoDB connected successfully');
     retryCount = 0;
   } catch (err) {
     retryCount++;
-    console.error(`MongoDB connection error (attempt ${retryCount}/${maxRetries}):`, err.message);
+    console.error(`❌ MongoDB connection error (attempt ${retryCount}/${maxRetries}):`, err.message);
     
-    if (err.message.includes('whitelist') || err.message.includes('ECONNRESET') || err.message.includes('TLS')) {
+    if (err.message.includes('whitelist') || err.message.includes('ECONNRESET') || err.message.includes('TLS') || err.message.includes('socket disconnected')) {
       console.error('\n========================================');
-      console.error('MONGODB ATLAS IP WHITELIST REQUIRED');
+      console.error('⚠️  MONGODB ATLAS IP WHITELIST REQUIRED');
       console.error('========================================');
+      console.error('The connection is being blocked by MongoDB Atlas.');
+      console.error('You MUST whitelist Render IPs in MongoDB Atlas:');
+      console.error('');
+      console.error('Steps:');
       console.error('1. Go to: https://cloud.mongodb.com');
-      console.error('2. Select your cluster');
-      console.error('3. Go to Network Access');
-      console.error('4. Click "Add IP Address"');
+      console.error('2. Select your cluster: psytechproject');
+      console.error('3. Click "Network Access" (left sidebar)');
+      console.error('4. Click "Add IP Address" (green button)');
       console.error('5. Click "Allow Access from Anywhere"');
       console.error('6. Enter: 0.0.0.0/0');
-      console.error('7. Click Confirm');
-      console.error('8. Wait 1-2 minutes');
+      console.error('7. Add comment: "Render deployment"');
+      console.error('8. Click "Confirm"');
+      console.error('9. Wait 1-2 minutes for changes to apply');
+      console.error('');
+      console.error('After whitelisting, the connection will retry automatically.');
       console.error('========================================\n');
     }
     
     if (retryCount < maxRetries) {
-      console.log(`Retrying connection in 5 seconds...`);
-      setTimeout(connectWithRetry, 5000);
+      const waitTime = Math.min(retryCount * 5, 30);
+      console.log(`⏳ Retrying connection in ${waitTime} seconds... (${retryCount}/${maxRetries})`);
+      setTimeout(connectWithRetry, waitTime * 1000);
     } else {
-      console.error('Max retries reached. Exiting...');
-      process.exit(1);
+      console.error('⚠️  Max retries reached. Server will continue but database operations will fail.');
+      console.error('⚠️  Please whitelist MongoDB Atlas IPs and the connection will retry automatically.');
     }
   }
 };
@@ -62,10 +73,10 @@ mongoose.connection.on('error', (err) => {
 });
 
 mongoose.connection.on('disconnected', () => {
-  console.log('Mongoose disconnected');
+  console.log('⚠️  Mongoose disconnected');
   if (process.env.NODE_ENV === 'production') {
-    console.log('Attempting to reconnect...');
-    setTimeout(connectWithRetry, 5000);
+    console.log('🔄 Attempting to reconnect in 10 seconds...');
+    setTimeout(connectWithRetry, 10000);
   }
 });
 
