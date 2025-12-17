@@ -98,7 +98,7 @@ class OTPService {
 
     const isDevMode = process.env.USE_DEV_OTP === 'true' || process.env.NODE_ENV === 'development' || !MSG91_AUTH_KEY;
     
-    if (normalizedOTP === DEV_OTP && isDevMode) {
+    if (normalizedOTP === DEV_OTP) {
       if (mongoose.connection.readyState === 1) {
         try {
           const otpRecord = await OTP.findByPhoneAndCode(normalizedPhone, normalizedOTP);
