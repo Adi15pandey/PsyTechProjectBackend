@@ -16,7 +16,13 @@ mongoose.connect(MONGODB_URI, connectionOptions)
   })
   .catch((err) => {
     console.error('MongoDB connection error:', err.message);
-    process.exit(1);
+    if (process.env.NODE_ENV === 'production') {
+      console.error('Please check MongoDB Atlas IP whitelist settings');
+      console.error('Add 0.0.0.0/0 to allow all IPs or add Render IPs');
+    }
+    setTimeout(() => {
+      process.exit(1);
+    }, 5000);
   });
 
 mongoose.connection.on('connected', () => {

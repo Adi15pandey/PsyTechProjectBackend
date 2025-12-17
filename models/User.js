@@ -9,7 +9,8 @@ const userSchema = new mongoose.Schema({
   phoneNumber: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
+    index: true
   },
   name: {
     type: String,
@@ -50,8 +51,6 @@ const userSchema = new mongoose.Schema({
   timestamps: true,
   _id: false
 });
-
-userSchema.index({ phoneNumber: 1 });
 
 const User = mongoose.model('User', userSchema);
 
