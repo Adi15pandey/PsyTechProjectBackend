@@ -142,14 +142,24 @@ Get new access token using refresh token.
 
 **POST** `/api/auth/logout`
 
-Revoke refresh token and logout user.
+Revoke all refresh tokens for the user and logout. Supports both access token (from header) and refresh token (from body).
 
-**Request:**
+**Headers (Optional):**
+```
+Authorization: Bearer <accessToken>
+```
+
+**Request Body (Optional):**
 ```json
 {
   "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
+
+**Note:** You can provide either:
+- Access token in `Authorization` header (recommended)
+- Refresh token in request body
+- Both (will revoke all tokens for the user)
 
 **Response (200):**
 ```json
@@ -158,6 +168,10 @@ Revoke refresh token and logout user.
   "message": "Logged out successfully"
 }
 ```
+
+**Error Responses:**
+- `503` - Database connection not available
+- `500` - Server error
 
 ---
 
