@@ -607,6 +607,424 @@ Logout Flow:
 
 ---
 
+---
+
+## Photo Upload Guide
+
+### Backend Requirements
+
+- **File Size Limit:** 5MB per file
+- **Allowed Types:** JPEG, JPG, PNG, GIF, WEBP
+- **Field Names:** 
+  - `profileImage` (for personal profiles)
+  - `logo` (for business profiles)
+- **Content-Type:** `multipart/form-data`
+
+### React (Web) - Complete Example
+
+```jsx
+// PhotoUpload.jsx
+import React, { useState, useRef } from 'react';
+import api from './api';
+
+const PhotoUpload = () => {
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState(null);
+  const fileInputRef = useRef(null);
+
+  // Validate file before selection
+  const validateFile = (file) => {
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error('Only JPEG, PNG, GIF, and WEBP images are allowed');
+    }
+    
+    if (file.size > maxSize) {
+      throw new Error('File size must be less than 5MB');
+    }
+    
+    return true;
+  };
+
+  // Handle file selection
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      validateFile(file);
+      setSelectedImage(file);
+      setError(null);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      setError(err.message);
+      setSelectedImage(null);
+      setPreview(null);
+    }
+  };
+
+  // Upload profile image
+  const handleUpload = async () => {
+    if (!selectedImage) {
+      setError('Please select an image first');
+      return;
+    }
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('profileImage', selectedImage);
+      formData.append('name', 'John Doe'); // Other fields if needed
+      
+      const response = await api.updateUserProfile(formData);
+      
+      if (response.success) {
+        alert('Profile image uploaded successfully!');
+        setSelectedImage(null);
+        setPreview(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    } catch (err) {
+      setError(err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Register user with image
+  const handleRegister = async (userData) => {
+    const formData = new FormData();
+    
+    // Add text fields
+    Object.keys(userData).forEach(key => {
+      if (key !== 'profileImage' && key !== 'logo' && userData[key] !== undefined) {
+        formData.append(key, userData[key]);
+      }
+    });
+
+    // Add image if selected
+    if (selectedImage) {
+      formData.append('profileImage', selectedImage);
+    }
+
+    try {
+      const response = await api.registerUser(formData);
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  return (
+    <div>
+      <h2>Upload Profile Image</h2>
+      
+      {error && <div style={{color: 'red'}}>{error}</div>}
+      
+      <div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+          onChange={handleFileSelect}
+          disabled={uploading}
+        />
+      </div>
+
+      {preview && (
+        <div>
+          <img 
+            src={preview} 
+            alt="Preview" 
+            style={{maxWidth: '200px', maxHeight: '200px', marginTop: '10px'}}
+          />
+          <p>File: {selectedImage.name} ({(selectedImage.size / 1024).toFixed(2)} KB)</p>
+        </div>
+      )}
+
+      <button 
+        onClick={handleUpload} 
+        disabled={!selectedImage || uploading}
+      >
+        {uploading ? 'Uploading...' : 'Upload Image'}
+      </button>
+    </div>
+  );
+};
+
+export default PhotoUpload;
+```
+
+### React Native - Complete Example
+
+```jsx
+// PhotoUpload.js (React Native)
+import React, { useState } from 'react';
+import { View, Image, Button, Alert, Text, ActivityIndicator } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import api from './api';
+
+const PhotoUpload = () => {
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Request permissions
+  const requestPermissions = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please grant camera roll permissions');
+      return false;
+    }
+    return true;
+  };
+
+  // Pick image from gallery
+  const pickImage = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const file = result.assets[0];
+        
+        // Validate file size (5MB limit)
+        if (file.fileSize > 5 * 1024 * 1024) {
+          Alert.alert('Error', 'File size must be less than 5MB');
+          return;
+        }
+
+        setSelectedImage(file);
+        setError(null);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
+  // Take photo with camera
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please grant camera permissions');
+      return;
+    }
+
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const file = result.assets[0];
+        
+        if (file.fileSize > 5 * 1024 * 1024) {
+          Alert.alert('Error', 'File size must be less than 5MB');
+          return;
+        }
+
+        setSelectedImage(file);
+        setError(null);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  // Upload image
+  const handleUpload = async () => {
+    if (!selectedImage) {
+      Alert.alert('Error', 'Please select an image first');
+      return;
+    }
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      
+      // Append image file
+      formData.append('profileImage', {
+        uri: selectedImage.uri,
+        type: 'image/jpeg',
+        name: 'profile.jpg',
+      } as any);
+
+      // Add other fields if needed
+      formData.append('name', 'John Doe');
+
+      const response = await api.updateUserProfile(formData);
+      
+      if (response.success) {
+        Alert.alert('Success', 'Profile image uploaded successfully!');
+        setSelectedImage(null);
+      }
+    } catch (err) {
+      setError(err.message || 'Upload failed');
+      Alert.alert('Error', err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <View style={{ padding: 20 }}>
+      <Text style={{ fontSize: 18, marginBottom: 10 }}>Upload Profile Image</Text>
+      
+      {error && <Text style={{ color: 'red', marginBottom: 10 }}>{error}</Text>}
+      
+      <View style={{ marginBottom: 10 }}>
+        <Button title="Pick from Gallery" onPress={pickImage} disabled={uploading} />
+      </View>
+      
+      <View style={{ marginBottom: 10 }}>
+        <Button title="Take Photo" onPress={takePhoto} disabled={uploading} />
+      </View>
+
+      {selectedImage && (
+        <View style={{ marginBottom: 10 }}>
+          <Image
+            source={{ uri: selectedImage.uri }}
+            style={{ width: 200, height: 200, marginBottom: 10 }}
+          />
+          <Text>File size: {(selectedImage.fileSize / 1024).toFixed(2)} KB</Text>
+        </View>
+      )}
+
+      <Button
+        title={uploading ? 'Uploading...' : 'Upload Image'}
+        onPress={handleUpload}
+        disabled={!selectedImage || uploading}
+      />
+
+      {uploading && <ActivityIndicator size="large" style={{ marginTop: 10 }} />}
+    </View>
+  );
+};
+
+export default PhotoUpload;
+```
+
+### API Service Methods for File Upload
+
+```javascript
+// api.js - Add these methods
+
+async registerUser(formData) {
+  const response = await fetch(`${API_BASE_URL}/api/user/register`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${this.accessToken}`,
+      // Don't set Content-Type, browser will set it with boundary
+    },
+    body: formData
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      await this.refreshAccessToken();
+      return this.registerUser(formData);
+    }
+    throw new Error('Registration failed');
+  }
+
+  return await response.json();
+}
+
+async updateUserProfile(formData) {
+  const response = await fetch(`${API_BASE_URL}/api/user/me`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${this.accessToken}`,
+      // Don't set Content-Type for FormData
+    },
+    body: formData
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      await this.refreshAccessToken();
+      return this.updateUserProfile(formData);
+    }
+    throw new Error('Update failed');
+  }
+
+  return await response.json();
+}
+```
+
+### Key Points for Photo Upload
+
+1. **FormData:** Always use `FormData` for file uploads
+2. **No Content-Type Header:** Let the browser set it automatically (includes boundary)
+3. **File Validation:** Check size (5MB) and type (images only) before upload
+4. **Preview:** Show image preview before uploading
+5. **Error Handling:** Handle file size, type, and network errors
+6. **Field Names:** Use `profileImage` for personal, `logo` for business
+7. **Multiple Files:** Can upload both `profileImage` and `logo` in same request
+
+### Complete Registration Example with Image
+
+```jsx
+// RegisterForm.jsx
+const handleRegister = async (e) => {
+  e.preventDefault();
+  
+  const formData = new FormData();
+  formData.append('phoneNumber', phoneNumber);
+  formData.append('name', name);
+  formData.append('purpose', purpose);
+  formData.append('showDate', showDate);
+  formData.append('language', language);
+
+  // Add profile image if selected
+  if (profileImageFile) {
+    formData.append('profileImage', profileImageFile);
+  }
+
+  // Add logo if business
+  if (purpose === 'business' && logoFile) {
+    formData.append('logo', logoFile);
+  }
+
+  try {
+    const response = await api.registerUser(formData);
+    if (response.success) {
+      // Handle success
+      console.log('User registered:', response.user);
+    }
+  } catch (error) {
+    console.error('Registration failed:', error);
+  }
+};
+```
+
+---
+
 ## Testing Checklist
 
 - [ ] Send OTP with valid phone number
@@ -616,4 +1034,9 @@ Logout Flow:
 - [ ] Handle token expiration and refresh
 - [ ] Logout and clear tokens
 - [ ] Handle network errors gracefully
+- [ ] Upload profile image (React web)
+- [ ] Upload profile image (React Native)
+- [ ] Validate file size and type before upload
+- [ ] Show image preview before upload
+- [ ] Handle upload errors gracefully
 
