@@ -60,7 +60,7 @@ class UserModel {
       return null;
     }
     try {
-      return await User.findOne({ phoneNumber: phoneNumber.trim() });
+      return await User.findOne({ phoneNumber: phoneNumber.trim() }).maxTimeMS(10000);
     } catch (error) {
       console.error('Find user by phone error:', error.message);
       throw error;
@@ -97,7 +97,12 @@ class UserModel {
       isPremium: Boolean(userData.isPremium || false)
     });
     
-    await user.save();
+    // Add timeout protection
+    const savePromise = user.save();
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('User creation timeout')), 10000)
+    );
+    await Promise.race([savePromise, timeoutPromise]);
     return user;
   }
 

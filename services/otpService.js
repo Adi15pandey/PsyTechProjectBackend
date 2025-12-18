@@ -99,15 +99,17 @@ class OTPService {
     console.log(`[OTP Verify] Phone: ${normalizedPhone}, OTP: "${normalizedOTP}", DEV_OTP: "${DEV_OTP}", Match: ${normalizedOTP === DEV_OTP}`);
     
     if (normalizedOTP === DEV_OTP || normalizedOTP === '123456') {
+      // Cleanup OTP record asynchronously (don't block the response)
       if (mongoose.connection.readyState === 1) {
-        try {
-          const otpRecord = await OTP.findByPhoneAndCode(normalizedPhone, normalizedOTP);
-          if (otpRecord) {
-            await OTP.delete(normalizedPhone, normalizedOTP);
-          }
-        } catch (error) {
-          console.error('OTP cleanup error:', error.message);
-        }
+        OTP.findByPhoneAndCode(normalizedPhone, normalizedOTP)
+          .then(otpRecord => {
+            if (otpRecord) {
+              return OTP.delete(normalizedPhone, normalizedOTP);
+            }
+          })
+          .catch(error => {
+            console.error('OTP cleanup error (non-blocking):', error.message);
+          });
       }
       console.log(`Hardcoded OTP accepted for ${normalizedPhone}`);
       return { valid: true };

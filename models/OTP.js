@@ -25,7 +25,12 @@ const OTP = mongoose.model('OTP', otpSchema);
 class OTPModel {
   static async create(phoneNumber, otpCode, expiresAt) {
     try {
-      await OTP.deleteMany({ phoneNumber }).maxTimeMS(5000);
+      try {
+        await OTP.deleteMany({ phoneNumber }).maxTimeMS(5000);
+      } catch (error) {
+        console.error('Delete old OTPs error:', error.message);
+        // Continue even if cleanup fails
+      }
 
       const otp = new OTP({
         phoneNumber,
@@ -33,7 +38,12 @@ class OTPModel {
         expiresAt
       });
 
-      await otp.save();
+      // Add timeout protection
+      const savePromise = otp.save();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('OTP creation timeout')), 5000)
+      );
+      await Promise.race([savePromise, timeoutPromise]);
       return otp;
     } catch (error) {
       console.error('Create OTP error:', error.message);
@@ -57,7 +67,12 @@ class OTPModel {
   }
 
   static async delete(phoneNumber, otpCode) {
-    await OTP.deleteOne({ phoneNumber, otpCode });
+    try {
+      await OTP.deleteOne({ phoneNumber, otpCode }).maxTimeMS(5000);
+    } catch (error) {
+      console.error('Delete OTP error:', error.message);
+      // Don't throw - cleanup operation should not fail the request
+    }
   }
 
   static async deleteExpired() {

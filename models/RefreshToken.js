@@ -36,7 +36,12 @@ const RefreshToken = mongoose.model('RefreshToken', refreshTokenSchema);
 
 class RefreshTokenModel {
   static async create(userId, phoneNumber, token, expiresAt) {
-    await RefreshToken.deleteMany({ userId, isRevoked: false });
+    try {
+      await RefreshToken.deleteMany({ userId, isRevoked: false }).maxTimeMS(5000);
+    } catch (error) {
+      console.error('Delete old refresh tokens error:', error.message);
+      // Continue even if cleanup fails
+    }
 
     const refreshToken = new RefreshToken({
       token,
@@ -46,7 +51,12 @@ class RefreshTokenModel {
       isRevoked: false
     });
 
-    await refreshToken.save();
+    // Add timeout protection
+    const savePromise = refreshToken.save();
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Refresh token creation timeout')), 10000)
+    );
+    await Promise.race([savePromise, timeoutPromise]);
     return refreshToken;
   }
 
