@@ -65,6 +65,15 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Keep-alive endpoint to prevent Render free tier from sleeping
+app.get('/keep-alive', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Keep-alive ping successful',
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 
